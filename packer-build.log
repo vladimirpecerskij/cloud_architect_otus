@@ -1,0 +1,2 @@
+cd ~/otus-packer
+packer build -var "folder_id=b1gi63p5vpc29cv73nqa" -var "subnet_id=e9bjskqc8suuhs3v4dr6" -var "service_account_key_file=key.json" -var "image_description=My custom nginx image for OTUS homework" json/template.json 2>&1 | tee ~/cloud_architect_otus/packer-build.log
