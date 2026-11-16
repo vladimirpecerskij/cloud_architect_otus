@@ -1,7 +1,7 @@
 Домашнее задание: Развертывание тестовой среды при помощи Terraform
 
 Цель: развернуть при помощи Terraform тестовую среду в Yandex Cloud, включающую хосты для front-end, back-end и базы данных, с автоматической настройкой ПО через cloud-init, ограничением доступа через Security Group и балансировщиком нагрузки.
-1. Архитектура решения
+## 1. Архитектура решения
 
 Здесь «топология» — это цепочка инструментов и ресурсов, задействованных при развёртывании инфраструктуры:
 text
@@ -19,7 +19,7 @@ text
     Network Load Balancer: распределяет HTTP-трафик между frontend и backend.
 
 Схема взаимодействия:
-text
+```
 
 Хост (Terraform + main.tf + outputs.tf + cloud-init-*.yaml)
         │
@@ -34,8 +34,8 @@ Yandex Cloud API ◄── IAM-токен (YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID)
         ├── ВМ database-vm (Ubuntu 22.04 LTS, PostgreSQL)
         ├── Target Group app-target-group (frontend + backend)
         └── NLB app-load-balancer (HTTP :80)
-
-2. План работ
+```
+## 2. План работ
 
     Установка Terraform: бинарник с зеркала Yandex Cloud (hashicorp-releases.yandexcloud.net).
 
@@ -57,7 +57,7 @@ Yandex Cloud API ◄── IAM-токен (YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID)
 
     Уборка: terraform destroy.
 
-3. Параметры окружения и адресное пространство
+## 3. Параметры окружения и адресное пространство
 Параметр	Значение
 Версия Terraform	v1.14.3 (linux_amd64)
 Провайдер yandex-cloud/yandex	скачан с terraform-mirror.yandexcloud.net
@@ -77,11 +77,11 @@ SSH-ключ	~/.ssh/id_ed25519.pub
 ВМ database	database-vm (2 ядра, 4 ГБ RAM, 30 ГБ HDD, PostgreSQL)
 Target Group	app-target-group (frontend + backend)
 NLB	app-load-balancer (HTTP :80)
-4. Конфигурация Terraform
+## 4. ***Конфигурация Terraform***
 
 Ниже приведены итоговые файлы конфигурации. В качестве инструмента развёртывания используется Terraform с провайдером Yandex.
 main.tf
-hcl
+```
 
 terraform {
   required_providers {
@@ -271,9 +271,9 @@ resource "yandex_lb_network_load_balancer" "app-nlb" {
     }
   }
 }
-
+```
 outputs.tf
-hcl
+```
 
 output "frontend_external_ip" {
   value = yandex_compute_instance.frontend.network_interface.0.nat_ip_address
@@ -290,8 +290,10 @@ output "database_external_ip" {
 output "nlb_external_ip" {
   value = yandex_lb_network_load_balancer.app-nlb.listener.0.external_address_spec.0.address
 }
+```
 
 cloud-init-frontend.yaml
+```
 yaml
 
 #cloud-config
@@ -311,8 +313,9 @@ runcmd:
   - systemctl enable nginx
   - systemctl start nginx
   - echo "<h1>Frontend (Nginx) is working!</h1>" > /var/www/html/index.html
-
+```
 cloud-init-backend.yaml
+```
 yaml
 
 #cloud-config
@@ -337,8 +340,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b"Backend is working!")
 HTTPServer(("0.0.0.0", 8080), Handler).serve_forever()' > /home/ubuntu/backend.py
   - nohup python3 /home/ubuntu/backend.py &
-
+```
 cloud-init-database.yaml
+```
 yaml
 
 #cloud-config
@@ -384,7 +388,7 @@ text
 *.tfstate
 *.tfstate.backup
 crash.log
-
+```
 Параметры конфигурации
 Параметр	Значение / назначение
 provider.zone	зона по умолчанию для всех ресурсов (ru-central1-a)
@@ -405,21 +409,21 @@ outputs.*_external_ip	вывод внешних IP-адресов трёх ВМ 
 
 5. Верификация и проверка результата
 Полный вывод terraform init
-text
+```
 
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ terraform init
 Initializing the backend...
 Initializing provider plugins...
 - Finding latest version of yandex-cloud/yandex...
-...
+
 Terraform has been successfully initialized!
 
 You may now begin working with Terraform. Try running "terraform plan" to see
 any changes that are required for your infrastructure. All Terraform commands
 should now work.
-
+```
 Полный вывод terraform plan (фрагмент)
-text
+```
 
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ terraform plan
 data.yandex_compute_image.ubuntu: Reading...
@@ -451,13 +455,12 @@ Changes to Outputs:
   + database_external_ip = (known after apply)
   + frontend_external_ip = (known after apply)
   + nlb_external_ip      = (known after apply)
-
+```
 Интерпретация: план корректен — 8 ресурсов к созданию (сеть, подсеть, SG, три ВМ, target group, NLB), без изменений и удалений.
 Полный вывод terraform apply (фрагмент)
-text
+```
 
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ terraform apply
-...
 Do you want to perform these actions?
   Only 'yes' will be accepted to approve.
 
@@ -481,10 +484,10 @@ backend_external_ip  = "84.201.x.x"
 database_external_ip = "84.201.x.x"
 frontend_external_ip = "84.201.x.x"
 nlb_external_ip      = "84.201.x.x"
-
+```
 Интерпретация: все 8 ресурсов созданы. Внешние IP-адреса трёх ВМ и балансировщика выведены в Outputs.
 Проверка созданных ресурсов
-text
+```
 
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ yc compute instance list
 +----------------------+-------------+---------------+---------+---------------+-------------+
@@ -494,16 +497,16 @@ vladimir@vladimir-VirtualBox ~/terraform-hw ❯ yc compute instance list
 | fhm...               | backend-vm  | ru-central1-a | RUNNING | 84.201.x.x    | 192.168.10.x|
 | fhm...               | database-vm | ru-central1-a | RUNNING | 84.201.x.x    | 192.168.10.x|
 +----------------------+-------------+---------------+---------+---------------+-------------+
-
+```
 Проверка frontend (nginx)
-text
+```
 
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ curl http://<frontend_external_ip>
 <h1>Frontend (Nginx) is working!</h1>
 
 Проверка backend (Python :8080)
-text
-
+```
+```
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ curl http://<backend_external_ip>:8080
 Backend is working!
 
@@ -545,6 +548,7 @@ vladimir@vladimir-VirtualBox ~/terraform-hw ❯ yc vpc security-group list
 +----------------------+-------+-------------+----------------------+
 | enp...               | hw-sg |             | enprnpuh1fpdgkjn4kcv |
 +----------------------+-------+-------------+----------------------+
+```
 
 6. Выводы по работе
 
