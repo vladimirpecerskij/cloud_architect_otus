@@ -131,7 +131,7 @@ json/template.json
 
 ## 5. Верификация и проверка результата
 Полный вывод packer build
-text
+```
 
 vladimir@vladimir-VirtualBox ~/otus-packer ( (master) ❯ packer build -var "folder_id=b1gi63p5vpc29cv73nqa" -var "subnet_id=e9bjskqc8suuhs3v4dr6" -var "service_account_key_file=key.json" -var "image_description=My custom nginx image for OTUS homework" json/template.json
 yandex: output will be in this color.
@@ -213,22 +213,22 @@ Build 'yandex' finished after 2 minutes 9 seconds.
 
 ==> Builds finished. The artifacts of successful builds are:
 --> yandex: A disk image was created: nginx-image-1794821920 (id: fd8a7ti0qr81rk992kob) with family name nginx-family
-
+```
 Интерпретация: Packer успешно создал временную ВМ из debian-12, установил nginx (пакет 1.22.1-9+deb12u10), создал образ с ID fd8a7ti0qr81rk992kob и семейством nginx-family, после чего удалил временную ВМ и boot-диск. Артефакт сборки — образ — создан.
 Проверка созданного образа
-bash
+```
 
 yc compute image list
 yc compute image get fd8a7ti0qr81rk992kob
-
+```
 В выводе yc compute image get должно присутствовать описание My custom nginx image for OTUS homework, что подтверждает работу параметризации image_description.
 Проверка прав сервисного аккаунта
-bash
+```
 
 yc resource-manager folder list-access-bindings b1gi63p5vpc29cv73nqa
-
+```
 Ожидаемый результат:
-text
+```
 
 +---------+----------------+----------------------+
 | ROLE ID |  SUBJECT TYPE  |      SUBJECT ID      |
@@ -237,21 +237,16 @@ text
 +---------+----------------+----------------------+
 
 Полный вывод packer init
-text
+```
 
 vladimir@vladimir-VirtualBox ~/otus-packer ( (master) ❯ packer init config.pkr.hcl
 Installed plugin github.com/hashicorp/yandex v1.1.3 in "/home/vladimir/.config/packer/plugins/github.com/hashicorp/yandex/packer-plugin-yandex_v1.1.3_x5.0_linux_amd64"
 
-6. Выводы по работе
+## 6. Выводы по работе
 
-Цель достигнута: при помощи Packer собран готовый образ ВМ с установленным nginx в Yandex Compute Engine. Образ имеет ID fd8a7ti0qr81rk992kob и семейство nginx-family.
-
-Автоматизация: сборка образа полностью воспроизводима одной командой packer build с передачей переменных. Ручное создание ВМ, установка ПО и создание образа через консоль больше не требуются.
-
-Безопасность: вместо личного IAM-токена используется отдельный сервисный аккаунт packer с ролью editor на каталог и ключом key.json (параметр token из шаблона удалён). Это соответствует практике наименьших привилегий и позволяет отзывать доступ, не затрагивая личный аккаунт.
-
-Параметризация: шаблон не требует редактирования под каждую сборку — folder_id, subnet_id, service_account_key_file, image_description и zone передаются через -var. Это упрощает повторное использование шаблона в разных каталогах и зонах.
-
-Устойчивость к EOL: переход с debian-11 на debian-12 после ошибок 404 в репозиториях безопасности показал важность актуальности исходного образа при сборке.
-
-Уборка ресурсов: после проверки образ удаляется командой yc compute image delete fd8a7ti0qr81rk992kob, чтобы не расходовать квоту облака.
+- **Цель достигнута:** при помощи Packer собран готовый образ ВМ с установленным nginx в Yandex Compute Engine. Образ имеет ID `fd8a7ti0qr81rk992kob` и семейство `nginx-family`.
+- **Автоматизация:** сборка образа полностью воспроизводима одной командой `packer build` с передачей переменных. Ручное создание ВМ, установка ПО и создание образа через консоль больше не требуются.
+- **Безопасность:** вместо личного IAM-токена используется отдельный сервисный аккаунт `packer` с ролью `editor` на каталог и ключом `key.json` (параметр `token` из шаблона удалён). Это соответствует практике наименьших привилегий и позволяет отзывать доступ, не затрагивая личный аккаунт.
+- **Параметризация:** шаблон не требует редактирования под каждую сборку — `folder_id`, `subnet_id`, `service_account_key_file`, `image_description` и `zone` передаются через `-var`. Это упрощает повторное использование шаблона в разных каталогах и зонах.
+- **Устойчивость к EOL:** переход с `debian-11` на `debian-12` после ошибок 404 в репозиториях безопасности показал важность актуальности исходного образа при сборке.
+- **Уборка ресурсов:** после проверки образ удаляется командой `yc compute image delete fd8a7ti0qr81rk992kob`, чтобы не расходовать квоту облака.
