@@ -32,8 +32,6 @@ Yandex Cloud API ◄── IAM-токен (YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID)
 ```
 ## 2. План работ
 
-   ## 2. План работ
-
 - **Установка Terraform:** бинарник с зеркала Yandex Cloud (`hashicorp-releases.yandexcloud.net`).
 - **Настройка зеркала провайдеров:** файл `~/.terraformrc` с `terraform-mirror.yandexcloud.net` (обход недоступного `registry.terraform.io`).
 - **Аутентификация:** переменные окружения `YC_TOKEN`, `YC_CLOUD_ID`, `YC_FOLDER_ID`.
