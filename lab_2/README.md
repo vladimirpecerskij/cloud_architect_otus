@@ -2,22 +2,17 @@
 
 Цель: развернуть при помощи Terraform тестовую среду в Yandex Cloud, включающую хосты для front-end, back-end и базы данных, с автоматической настройкой ПО через cloud-init, ограничением доступа через Security Group и балансировщиком нагрузки.
 ## 1. Архитектура решения
+### Компоненты архитектуры
 
-Здесь «топология» — это цепочка инструментов и ресурсов, задействованных при развёртывании инфраструктуры:
-```
+| Компонент | Назначение |
+| :--- | :--- |
+| **Хост-машина (VirtualBox, Ubuntu)** | установлен Terraform, хранятся конфигурационные файлы |
+| **Yandex Cloud (каталог b1gi63p5vpc29cv73nqa)** | целевая облачная среда, где создаются сеть, подсеть, Security Group и три ВМ |
+| **Terraform + провайдер yandex-cloud/yandex** | инструмент, который по файлам `main.tf` и `outputs.tf` декларативно создаёт инфраструктуру |
+| **IAM-токен (YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID)** | аутентификация Terraform в Yandex Cloud |
+| **Cloud-init** | автоматическая установка nginx (frontend), Python-заглушки (backend) и PostgreSQL (database) при первом старте ВМ |
+| **Network Load Balancer** | распределяет HTTP-трафик между frontend и backend |
 
-Хост-машина (VirtualBox, Ubuntu): установлен Terraform, хранятся конфигурационные файлы.
-
-    Yandex Cloud (каталог b1gi63p5vpc29cv73nqa): целевая облачная среда, где создаются сеть, подсеть, Security Group и три ВМ.
-
-    Terraform + провайдер yandex-cloud/yandex: инструмент, который по файлам main.tf и outputs.tf декларативно создаёт инфраструктуру.
-
-    IAM-токен (YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID): аутентификация Terraform в Yandex Cloud.
-
-    Cloud-init: автоматическая установка nginx (frontend), Python-заглушки (backend) и PostgreSQL (database) при первом старте ВМ.
-
-    Network Load Balancer: распределяет HTTP-трафик между frontend и backend.
-```
 Схема взаимодействия:
 ```
 
