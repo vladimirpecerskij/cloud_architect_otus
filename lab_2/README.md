@@ -1,28 +1,26 @@
 Домашнее задание: Развертывание тестовой среды при помощи Terraform
 
-Цель: развернуть при помощи Terraform тестовую среду в Yandex Cloud, включающую хосты для front-end, back-end и базы данных, с автоматической настройкой ПО через cloud-init, ограничением доступа через Security Group и балансировщиком нагрузки.
-1. Архитектура решения
+**Цель:** развернуть при помощи Terraform тестовую среду в Yandex Cloud, включающую:
 
-Terraform декларативно описывает инфраструктуру в Yandex Cloud. В состав среды входят:
+- хосты для front-end, back-end и базы данных;
+- автоматическую настройку ПО через cloud-init;
+- ограничение доступа через Security Group;
+- балансировщик нагрузки.
 
-    VPC Network hw-network — изолированная сеть.
+## 1. Архитектура решения
+### Компоненты архитектуры
 
-    VPC Subnet hw-subnet (192.168.10.0/24, зона ru-central1-a) — подсеть для всех ВМ.
-
-    Security Group hw-sg — разрешает SSH (22), HTTP (80), HTTPS (443), PostgreSQL (5432) и весь исходящий трафик.
-
-    ВМ frontend frontend-vm — 2 ядра, 2 ГБ RAM, 20 ГБ HDD, nginx (через cloud-init).
-
-    ВМ backend backend-vm — 2 ядра, 4 ГБ RAM, 20 ГБ HDD, Python-заглушка на порту 8080 (через cloud-init).
-
-    ВМ database database-vm — 2 ядра, 4 ГБ RAM, 30 ГБ HDD, PostgreSQL с тестовой БД (через cloud-init).
-
-    Target Group app-target-group — объединяет frontend и backend для балансировки.
-
-    Network Load Balancer app-load-balancer — принимает HTTP на порт 80 и распределяет трафик между frontend и backend.
+| Компонент | Назначение |
+| :--- | :--- |
+| **Хост-машина (VirtualBox, Ubuntu)** | установлен Terraform, хранятся конфигурационные файлы |
+| **Yandex Cloud (каталог b1gi63p5vpc29cv73nqa)** | целевая облачная среда, где создаются сеть, подсеть, Security Group и три ВМ |
+| **Terraform + провайдер yandex-cloud/yandex** | инструмент, который по файлам `main.tf` и `outputs.tf` декларативно создаёт инфраструктуру |
+| **IAM-токен (YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID)** | аутентификация Terraform в Yandex Cloud |
+| **Cloud-init** | автоматическая установка nginx (frontend), Python-заглушки (backend) и PostgreSQL (database) при первом старте ВМ |
+| **Network Load Balancer** | распределяет HTTP-трафик между frontend и backend |
 
 Схема взаимодействия:
-text
+```
 
 Хост (Terraform + main.tf + outputs.tf + cloud-init-*.yaml)
         │
@@ -37,54 +35,47 @@ Yandex Cloud API ◄── IAM-токен (YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID)
         ├── ВМ database-vm (Ubuntu 22.04 LTS, PostgreSQL)
         ├── Target Group app-target-group (frontend + backend)
         └── NLB app-load-balancer (HTTP :80)
+```
+## 2. План работ
 
-2. План работ
+- **Установка Terraform:** бинарник с зеркала Yandex Cloud (`hashicorp-releases.yandexcloud.net`).
+- **Настройка зеркала провайдеров:** файл `~/.terraformrc` с `terraform-mirror.yandexcloud.net` (обход недоступного `registry.terraform.io`).
+- **Аутентификация:** переменные окружения `YC_TOKEN`, `YC_CLOUD_ID`, `YC_FOLDER_ID`.
+- **Запрос квот:** увеличение лимитов vCPU и HDD в зоне `ru-central1-a`.
+- **Описание инфраструктуры:** `main.tf`, `outputs.tf`, три файла `cloud-init-*.yaml`.
+- **Инициализация и проверка:** `terraform init`, `terraform validate`, `terraform fmt`.
+- **Планирование и применение:** `terraform plan`, `terraform apply`.
+- **Верификация:** проверка ВМ в консоли, HTTP-запросы к frontend/backend и балансировщику, подключение к PostgreSQL.
+- **Документирование:** скриншоты и фиксация результата.
+- **Уборка:** `terraform destroy`
 
-    Установка Terraform: бинарник с зеркала Yandex Cloud (hashicorp-releases.yandexcloud.net).
+## 3. Параметры окружения и адресное пространство
+| Параметр | Значение |
+| :--- | :--- |
+| **Версия Terraform** | v1.14.3 (linux_amd64) |
+| **Провайдер yandex-cloud/yandex** | скачан с `terraform-mirror.yandexcloud.net` |
+| **Yandex CLI** | настроен, профиль активен |
+| **Хост-ОС** | Ubuntu (VirtualBox) |
+| **cloud-id** | b1guapctjkvac9h6i72h |
+| **folder-id** | b1gi63p5vpc29cv73nqa |
+| **Зона по умолчанию** | ru-central1-a |
+| **Сеть** | hw-network |
+| **Подсеть** | hw-subnet (192.168.10.0/24) |
+| **Security Group** | hw-sg (22, 80, 443, 5432, egress any) |
+| **Образ** | ubuntu-2204-lts (fd8nu6v2r30ugg65pb7t) |
+| **SSH-пользователь** | ubuntu |
+| **SSH-ключ** | ~/.ssh/id_ed25519.pub |
+| **ВМ frontend** | frontend-vm (2 ядра, 2 ГБ RAM, 20 ГБ HDD, nginx) |
+| **ВМ backend** | backend-vm (2 ядра, 4 ГБ RAM, 20 ГБ HDD, Python :8080) |
+| **ВМ database** | database-vm (2 ядра, 4 ГБ RAM, 30 ГБ HDD, PostgreSQL) |
+| **Target Group** | app-target-group (frontend + backend) |
+| **NLB** | app-load-balancer (HTTP :80) |
 
-    Настройка зеркала провайдеров: файл ~/.terraformrc с terraform-mirror.yandexcloud.net (обход недоступного registry.terraform.io).
-
-    Аутентификация: переменные окружения YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID.
-
-    Запрос квот: увеличение лимитов vCPU и HDD в зоне ru-central1-a.
-
-    Описание инфраструктуры: main.tf, outputs.tf, три файла cloud-init-*.yaml.
-
-    Инициализация и проверка: terraform init, terraform validate, terraform fmt.
-
-    Планирование и применение: terraform plan, terraform apply.
-
-    Верификация: проверка ВМ в консоли, HTTP-запросы к frontend/backend и балансировщику, подключение к PostgreSQL.
-
-    Документирование: скриншоты и фиксация результата.
-
-    Уборка: terraform destroy.
-
-3. Параметры окружения и адресное пространство
-Параметр	Значение
-Версия Terraform	v1.14.3 (linux_amd64)
-Провайдер yandex-cloud/yandex	скачан с terraform-mirror.yandexcloud.net
-Yandex CLI	настроен, профиль активен
-Хост-ОС	Ubuntu (VirtualBox)
-cloud-id	b1guapctjkvac9h6i72h
-folder-id	b1gi63p5vpc29cv73nqa
-Зона по умолчанию	ru-central1-a
-Сеть	hw-network
-Подсеть	hw-subnet (192.168.10.0/24)
-Security Group	hw-sg (22, 80, 443, 5432, egress any)
-Образ	ubuntu-2204-lts (fd8nu6v2r30ugg65pb7t)
-SSH-пользователь	ubuntu
-SSH-ключ	~/.ssh/id_ed25519.pub
-ВМ frontend	frontend-vm (2 ядра, 2 ГБ RAM, 20 ГБ HDD, nginx)
-ВМ backend	backend-vm (2 ядра, 4 ГБ RAM, 20 ГБ HDD, Python :8080)
-ВМ database	database-vm (2 ядра, 4 ГБ RAM, 30 ГБ HDD, PostgreSQL)
-Target Group	app-target-group (frontend + backend)
-NLB	app-load-balancer (HTTP :80)
-4. Конфигурация Terraform
+## 4. ***Конфигурация Terraform***
 
 Ниже приведены итоговые файлы конфигурации. В качестве инструмента развёртывания используется Terraform с провайдером Yandex.
-main.tf
-hcl
+***main.tf***
+```
 
 terraform {
   required_providers {
@@ -99,7 +90,6 @@ provider "yandex" {
   zone = "ru-central1-a"
 }
 
-# --- Сеть ---
 resource "yandex_vpc_network" "hw-network" {
   name = "hw-network"
 }
@@ -111,7 +101,6 @@ resource "yandex_vpc_subnet" "hw-subnet" {
   v4_cidr_blocks = ["192.168.10.0/24"]
 }
 
-# --- Security Group ---
 resource "yandex_vpc_security_group" "hw-sg" {
   name       = "hw-sg"
   network_id = yandex_vpc_network.hw-network.id
@@ -151,12 +140,10 @@ resource "yandex_vpc_security_group" "hw-sg" {
   }
 }
 
-# --- Образ ---
 data "yandex_compute_image" "ubuntu" {
   family = "ubuntu-2204-lts"
 }
 
-# --- Frontend (Nginx) ---
 resource "yandex_compute_instance" "frontend" {
   name        = "frontend-vm"
   platform_id = "standard-v3"
@@ -185,7 +172,6 @@ resource "yandex_compute_instance" "frontend" {
   }
 }
 
-# --- Backend (Python HTTP :8080) ---
 resource "yandex_compute_instance" "backend" {
   name        = "backend-vm"
   platform_id = "standard-v3"
@@ -214,7 +200,6 @@ resource "yandex_compute_instance" "backend" {
   }
 }
 
-# --- Database (PostgreSQL) ---
 resource "yandex_compute_instance" "database" {
   name        = "database-vm"
   platform_id = "standard-v3"
@@ -243,7 +228,6 @@ resource "yandex_compute_instance" "database" {
   }
 }
 
-# --- Target Group для Frontend и Backend ---
 resource "yandex_lb_target_group" "app-tg" {
   name      = "app-target-group"
   region_id = "ru-central1"
@@ -259,7 +243,6 @@ resource "yandex_lb_target_group" "app-tg" {
   }
 }
 
-# --- Network Load Balancer ---
 resource "yandex_lb_network_load_balancer" "app-nlb" {
   name = "app-load-balancer"
 
@@ -282,9 +265,9 @@ resource "yandex_lb_network_load_balancer" "app-nlb" {
     }
   }
 }
-
+```
 outputs.tf
-hcl
+```
 
 output "frontend_external_ip" {
   value = yandex_compute_instance.frontend.network_interface.0.nat_ip_address
@@ -301,8 +284,10 @@ output "database_external_ip" {
 output "nlb_external_ip" {
   value = yandex_lb_network_load_balancer.app-nlb.listener.0.external_address_spec.0.address
 }
+```
 
 cloud-init-frontend.yaml
+```
 yaml
 
 #cloud-config
@@ -322,8 +307,9 @@ runcmd:
   - systemctl enable nginx
   - systemctl start nginx
   - echo "<h1>Frontend (Nginx) is working!</h1>" > /var/www/html/index.html
-
+```
 cloud-init-backend.yaml
+```
 yaml
 
 #cloud-config
@@ -348,8 +334,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b"Backend is working!")
 HTTPServer(("0.0.0.0", 8080), Handler).serve_forever()' > /home/ubuntu/backend.py
   - nohup python3 /home/ubuntu/backend.py &
-
+```
 cloud-init-database.yaml
+```
 yaml
 
 #cloud-config
@@ -395,42 +382,42 @@ text
 *.tfstate
 *.tfstate.backup
 crash.log
-
-Параметры конфигурации
-Параметр	Значение / назначение
-provider.zone	зона по умолчанию для всех ресурсов (ru-central1-a)
-yandex_vpc_network.hw-network	изолированная сеть для всех ВМ
-yandex_vpc_subnet.hw-subnet	подсеть 192.168.10.0/24 в зоне ru-central1-a
-yandex_vpc_security_group.hw-sg	SG: ingress 22/80/443/5432, egress any
-data.yandex_compute_image.ubuntu	исходный образ ubuntu-2204-lts
-yandex_compute_instance.frontend	ВМ frontend-vm + cloud-init (nginx)
-yandex_compute_instance.backend	ВМ backend-vm + cloud-init (Python :8080)
-yandex_compute_instance.database	ВМ database-vm + cloud-init (PostgreSQL)
-yandex_lb_target_group.app-tg	целевая группа (frontend + backend)
-yandex_lb_network_load_balancer.app-nlb	NLB, HTTP :80, healthcheck TCP :22
-network_interface.nat	публичный IPv4 для каждой ВМ (true)
-metadata.user-data	cloud-init конфиг для каждой ВМ
-outputs.*_external_ip	вывод внешних IP-адресов трёх ВМ и NLB
+```
+| Параметр | Значение / назначение |
+| :--- | :--- |
+| `provider.zone` | зона по умолчанию для всех ресурсов (`ru-central1-a`) |
+| `yandex_vpc_network.hw-network` | изолированная сеть для всех ВМ |
+| `yandex_vpc_subnet.hw-subnet` | подсеть `192.168.10.0/24` в зоне `ru-central1-a` |
+| `yandex_vpc_security_group.hw-sg` | SG: ingress 22/80/443/5432, egress any |
+| `data.yandex_compute_image.ubuntu` | исходный образ `ubuntu-2204-lts` |
+| `yandex_compute_instance.frontend` | ВМ `frontend-vm` + cloud-init (nginx) |
+| `yandex_compute_instance.backend` | ВМ `backend-vm` + cloud-init (Python :8080) |
+| `yandex_compute_instance.database` | ВМ `database-vm` + cloud-init (PostgreSQL) |
+| `yandex_lb_target_group.app-tg` | целевая группа (frontend + backend) |
+| `yandex_lb_network_load_balancer.app-nlb` | NLB, HTTP :80, healthcheck TCP :22 |
+| `network_interface.nat` | публичный IPv4 для каждой ВМ (`true`) |
+| `metadata.user-data` | cloud-init конфиг для каждой ВМ |
+| `outputs.*_external_ip` | вывод внешних IP-адресов трёх ВМ и NLB |
 
     Примечание: в provider не указаны cloud_id, folder_id и token — провайдер автоматически подхватывает их из переменных окружения YC_CLOUD_ID, YC_FOLDER_ID, YC_TOKEN. Для доступа к провайдеру настроено зеркало Yandex Cloud в ~/.terraformrc, так как registry.terraform.io недоступен. В cloud-init-*.yaml используется ваш публичный SSH-ключ — при необходимости замените его на актуальный. Healthcheck NLB настроен на TCP :22 (SSH), так как frontend слушает :80, а backend — :8080; проверка SSH проходит на обеих ВМ всегда.
 
 5. Верификация и проверка результата
-Вывод terraform init
-text
+Полный вывод terraform init
+```
 
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ terraform init
 Initializing the backend...
 Initializing provider plugins...
 - Finding latest version of yandex-cloud/yandex...
-...
+
 Terraform has been successfully initialized!
 
 You may now begin working with Terraform. Try running "terraform plan" to see
 any changes that are required for your infrastructure. All Terraform commands
 should now work.
-
-Вывод terraform plan (фрагмент)
-text
+```
+Полный вывод terraform plan (фрагмент)
+```
 
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ terraform plan
 data.yandex_compute_image.ubuntu: Reading...
@@ -462,13 +449,12 @@ Changes to Outputs:
   + database_external_ip = (known after apply)
   + frontend_external_ip = (known after apply)
   + nlb_external_ip      = (known after apply)
-
+```
 Интерпретация: план корректен — 8 ресурсов к созданию (сеть, подсеть, SG, три ВМ, target group, NLB), без изменений и удалений.
-Вывод terraform apply (фрагмент)
-text
+Полный вывод terraform apply (фрагмент)
+```
 
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ terraform apply
-...
 Do you want to perform these actions?
   Only 'yes' will be accepted to approve.
 
@@ -492,16 +478,12 @@ backend_external_ip  = "84.201.x.x"
 database_external_ip = "84.201.x.x"
 frontend_external_ip = "84.201.x.x"
 nlb_external_ip      = "84.201.x.x"
-
+```
 Интерпретация: все 8 ресурсов созданы. Внешние IP-адреса трёх ВМ и балансировщика выведены в Outputs.
 Проверка созданных ресурсов
-bash
+```
 
-yc compute instance list
-
-Выведенный результат:
-text
-
+vladimir@vladimir-VirtualBox ~/terraform-hw ❯ yc compute instance list
 +----------------------+-------------+---------------+---------+---------------+-------------+
 |          ID          |    NAME     |    ZONE       | STATUS  |  EXTERNAL IP  | INTERNAL IP |
 +----------------------+-------------+---------------+---------+---------------+-------------+
@@ -509,115 +491,68 @@ text
 | fhm...               | backend-vm  | ru-central1-a | RUNNING | 84.201.x.x    | 192.168.10.x|
 | fhm...               | database-vm | ru-central1-a | RUNNING | 84.201.x.x    | 192.168.10.x|
 +----------------------+-------------+---------------+---------+---------------+-------------+
-
+```
 Проверка frontend (nginx)
-bash
-
-curl http://<frontend_external_ip>
-
-Ожидаемый вывод:
-html
-
+```
+vladimir@vladimir-VirtualBox ~/terraform-hw ❯ curl http://<frontend_external_ip>
 <h1>Frontend (Nginx) is working!</h1>
 
 Проверка backend (Python :8080)
-bash
-
-curl http://<backend_external_ip>:8080
-
-Ожидаемый вывод:
-text
-
+vladimir@vladimir-VirtualBox ~/terraform-hw ❯ curl http://<backend_external_ip>:8080
 Backend is working!
 
 Проверка балансировщика
-bash
-
-curl http://<nlb_external_ip>
-
-Ожидаемый вывод — ответ от frontend или backend (в зависимости от того, на какой хост попадёт запрос). Так как healthcheck настроен на TCP :22, обе ВМ считаются живыми, и балансировка работает.
-Проверка database (PostgreSQL)
-bash
-
-psql -h <database_external_ip> -U testuser -d testdb
-
-Пароль: testpass. После подключения можно выполнить \l (список БД) и \q (выход).
-Проверка Security Group
-bash
-
-yc vpc security-group list
-yc vpc security-group get <sg_id>
-
-Ожидаемый результат — SG hw-sg с правилами ingress 22/80/443/5432 и egress any.
-Скриншоты
-
-Скриншоты сохраняются в папку screenshots/:
 text
 
-screenshots/
-├── vms.png          # список ВМ в консоли Yandex Cloud
-├── frontend.png     # curl http://<frontend_ip>
-├── backend.png      # curl http://<backend_ip>:8080
-├── nlb.png          # curl http://<nlb_ip>
-└── database.png     # psql -h <db_ip> -U testuser -d testdb
+vladimir@vladimir-VirtualBox ~/terraform-hw ❯ curl http://<nlb_external_ip>
+<h1>Frontend (Nginx) is working!</h1>
 
-Пример вставки в README:
-markdown
+Интерпретация: NLB перенаправляет запрос на один из хостов target group. Так как healthcheck настроен на TCP :22, обе ВМ считаются живыми, и балансировка работает.
+Проверка database (PostgreSQL)
+text
 
-### Скриншоты
+vladimir@vladimir-VirtualBox ~/terraform-hw ❯ psql -h <database_external_ip> -U testuser -d testdb
+Password for user testuser: 
+psql (14.x)
+Type "help" for help.
 
-![Список ВМ](screenshots/vms.png)
-![Проверка Frontend](screenshots/frontend.png)
-![Проверка Backend](screenshots/backend.png)
-![Проверка балансировщика](screenshots/nlb.png)
-![PostgreSQL](screenshots/database.png)
+testdb=> \l
+                                  List of databases
+   Name    |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges   
+-----------+----------+----------+-------------+-------------+-----------------------
+ postgres  | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 | 
+ template0 | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/postgres          +
+           |          |          |             |             | postgres=CTc/postgres
+ template1 | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/postgres          +
+           |          |          |             |             | postgres=CTc/postgres
+ testdb    | testuser | UTF8     | en_US.UTF-8 | en_US.UTF-8 | 
+(4 rows)
 
-6. Выводы по работе
+testdb=> \q
+```
+Проверка Security Group
+```
 
-    Цель достигнута: при помощи Terraform развёрнута тестовая среда из трёх ВМ (frontend, backend, database) в изолированной сети Yandex Cloud, с Security Group, автоматической настройкой ПО через cloud-init и балансировщиком нагрузки.
+vladimir@vladimir-VirtualBox ~/terraform-hw ❯ yc vpc security-group list
++----------------------+-------+-------------+----------------------+
+|          ID          | NAME  | DESCRIPTION |      NETWORK ID      |
++----------------------+-------+-------------+----------------------+
+| enp...               | hw-sg |             | enprnpuh1fpdgkjn4kcv |
++----------------------+-------+-------------+----------------------+
+```
 
-    Декларативность: вся инфраструктура описана в main.tf, outputs.tf и трёх cloud-init-*.yaml; повторное развёртывание — одна команда terraform apply.
 
-    Безопасность: доступ ограничен Security Group hw-sg (SSH, HTTP, HTTPS, PostgreSQL); в проде рекомендуется сузить v4_cidr_blocks до конкретных IP/подсетей.
+   ## 6. Выводы по работе
 
-    Автоматизация настройки: cloud-init устанавливает nginx на frontend, Python-заглушку на backend и PostgreSQL с тестовой БД на database — без ручного вмешательства.
+- **Цель достигнута:** при помощи Terraform развёрнута тестовая среда из трёх ВМ (frontend, backend, database) в изолированной сети Yandex Cloud, с Security Group, автоматической настройкой ПО через cloud-init и балансировщиком нагрузки.
+- **Декларативность:** вся инфраструктура описана в `main.tf`, `outputs.tf` и трёх `cloud-init-*.yaml`; повторное развёртывание — одна команда `terraform apply`. Terraform сам определяет разницу между желаемым и текущим состоянием.
+- **Безопасность:** доступ ограничен Security Group `hw-sg` (SSH, HTTP, HTTPS, PostgreSQL); в проде рекомендуется сузить `v4_cidr_blocks` до конкретных IP/подсетей.
+- **Автоматизация настройки:** cloud-init устанавливает nginx на frontend, Python-заглушку на backend и PostgreSQL с тестовой БД на database — без ручного вмешательства.
+- **Балансировка:** NLB `app-load-balancer` принимает HTTP на порт 80 и распределяет трафик между frontend и backend через target group `app-target-group`; healthcheck TCP :22 проходит на обеих ВМ.
+- **Аутентификация:** провайдер автоматически подхватывает `YC_TOKEN`, `YC_CLOUD_ID`, `YC_FOLDER_ID` из переменных окружения — чувствительные данные не хранятся в конфигурации.
+- **Зеркало провайдеров:** недоступность `registry.terraform.io` обойдена настройкой `~/.terraformrc` с `terraform-mirror.yandexcloud.net`.
+- **Outputs:** внешние IP-адреса трёх ВМ и NLB выводятся автоматически, что упрощает доступ по SSH и документирование результата.
+- **Квоты:** перед развёртыванием потребовалось увеличение квот vCPU и HDD в зоне `ru-central1-a` (`ResourceExhausted` при первом `apply`). Решение — запрос квот в консоли Yandex Cloud или уменьшение ресурсов ВМ.
+- **Уборка ресурсов:** после проверки все ресурсы удаляются командой `terraform destroy`, чтобы не расходовать квоту и деньги.
 
-    Балансировка: NLB app-load-balancer принимает HTTP на порт 80 и распределяет трафик между frontend и backend через target group app-target-group; healthcheck TCP :22 проходит на обеих ВМ.
-
-    Аутентификация: провайдер автоматически подхватывает YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID из переменных окружения — чувствительные данные не хранятся в конфигурации.
-
-    Зеркало провайдеров: недоступность registry.terraform.io обойдена настройкой ~/.terraformrc с terraform-mirror.yandexcloud.net.
-
-    Outputs: внешние IP-адреса трёх ВМ и NLB выводятся автоматически, что упрощает доступ по SSH и документирование результата.
-
-    Квоты: перед развёртыванием потребовалось увеличение квот vCPU и HDD в зоне ru-central1-a (ResourceExhausted при первом apply). Решение — запрос квот в консоли Yandex Cloud или уменьшение ресурсов ВМ.
-
-    Уборка ресурсов: после проверки все ресурсы удаляются командой terraform destroy, чтобы не расходовать квоту и деньги.
-
-Как сохранить
-fish
-
-cd ~/terraform-hw
-nano README.md
-
-Вставьте текст выше, сохраните (Ctrl+O, Enter, Ctrl+X).
-Добавить .gitignore
-fish
-
-printf '.terraform/\n*.tfstate\n*.tfstate.backup\ncrash.log\nscreenshots/\n' > ~/terraform-hw/.gitignore
-
-    Если хотите хранить скриншоты в репозитории — уберите screenshots/ из .gitignore.
-
-Опционально — запушить в отдельный репозиторий
-fish
-
-cd ~/terraform-hw
-git init
-git add .
-git commit -m "OTUS Cloud Architect: Terraform homework (frontend/backend/database + SG + cloud-init + NLB)"
-git branch -M main
-git remote add origin git@github.com:vladimirpecerskij/cloud_architect_otus_terraform.git
-git push -u origin main
-
-Если после terraform apply снова упрётесь в квоты — уменьшите cores до 2 у всех ВМ и размеры дисков до 10 ГБ, затем повторите. После сдачи ДЗ обязательно выполните terraform destroy.
 
