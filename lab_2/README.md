@@ -488,13 +488,10 @@ vladimir@vladimir-VirtualBox ~/terraform-hw ❯ yc compute instance list
 ```
 Проверка frontend (nginx)
 ```
-
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ curl http://<frontend_external_ip>
 <h1>Frontend (Nginx) is working!</h1>
 
 Проверка backend (Python :8080)
-```
-```
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ curl http://<backend_external_ip>:8080
 Backend is working!
 
@@ -538,7 +535,6 @@ vladimir@vladimir-VirtualBox ~/terraform-hw ❯ yc vpc security-group list
 +----------------------+-------+-------------+----------------------+
 ```
 
-6. Выводы по работе
 
    ## 6. Выводы по работе
 
