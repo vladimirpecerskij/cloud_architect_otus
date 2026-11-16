@@ -54,10 +54,11 @@ Yandex Cloud API ◄── сервисный аккаунт packer (роль ed
 | **Ключ сервисного аккаунта** | key.json (RSA_2048, id aje6s1vmhb4hautp1jre) |
 | **Исходный образ** | family debian-12 (debian-12-v20261110) |
 | **Итоговый образ** | nginx-image-1794821920 (id fd8a7ti0qr81rk992kob), family nginx-family |
-4. Конфигурация (шаблон Packer)
+##4. Конфигурация (шаблон Packer)
 
 Ниже приведён итоговый json/template.json. В качестве инструмента сборки используется Packer с плагином Yandex.
 config.pkr.hcl
+```
 hcl
 
 packer {
@@ -68,9 +69,9 @@ packer {
     }
   }
 }
-
+```
 json/template.json
-json
+```json
 
 {
   "variables": {
@@ -106,21 +107,23 @@ json
     }
   ]
 }
+```
+### Параметры шаблона
 
-Параметры шаблона
-Параметр	Значение / назначение
-type	yandex — плагин сборки образов в Yandex Cloud
-service_account_key_file	путь к key.json (ключ сервисного аккаунта packer)
-folder_id	каталог, в котором создаётся образ (b1gi63p5vpc29cv73nqa)
-zone	зона размещения временной ВМ (ru-central1-a)
-subnet_id	подсеть для временной ВМ (e9bjskqc8suuhs3v4dr6)
-image_name	имя образа с меткой времени (nginx-image-{{timestamp}})
-image_family	семейство образа (nginx-family)
-image_description	описание образа, задаётся через -var
-source_image_family	исходный образ (debian-12)
-ssh_username	пользователь для SSH (debian)
-use_ipv4_nat	публичный IPv4 для временной ВМ (true)
-provisioners[].type	shell — установка nginx через apt-get
+| Параметр | Значение / назначение |
+| :--- | :--- |
+| `type` | `yandex` — плагин сборки образов в Yandex Cloud |
+| `service_account_key_file` | путь к `key.json` (ключ сервисного аккаунта `packer`) |
+| `folder_id` | каталог, в котором создаётся образ (`b1gi63p5vpc29cv73nqa`) |
+| `zone` | зона размещения временной ВМ (`ru-central1-a`) |
+| `subnet_id` | подсеть для временной ВМ (`e9bjskqc8suuhs3v4dr6`) |
+| `image_name` | имя образа с меткой времени (`nginx-image-{{timestamp}}`) |
+| `image_family` | семейство образа (`nginx-family`) |
+| `image_description` | описание образа, задаётся через `-var` |
+| `source_image_family` | исходный образ (`debian-12`) |
+| `ssh_username` | пользователь для SSH (`debian`) |
+| `use_ipv4_nat` | публичный IPv4 для временной ВМ (`true`) |
+| `provisioners[].type` | `shell` — установка nginx через `apt-get` |
 
     Примечание: в блоке builders используется service_account_key_file (путь к key.json), параметр token удалён. Переменная image_description позволяет задавать описание образа при сборке, не редактируя шаблон. Исходный образ — debian-12, так как debian-11 достиг EOL и его репозитории безопасности отдают 404 при установке пакетов.
 
