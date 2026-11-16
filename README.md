@@ -223,11 +223,12 @@ yc compute image get fd8a7ti0qr81rk992kob
 ```
 В выводе yc compute image get должно присутствовать описание My custom nginx image for OTUS homework, что подтверждает работу параметризации image_description.
 Проверка прав сервисного аккаунта
+
 ```
 
 yc resource-manager folder list-access-bindings b1gi63p5vpc29cv73nqa
 ```
-Ожидаемый результат:
+Выведенный результат:
 ```
 
 +---------+----------------+----------------------+
@@ -235,13 +236,13 @@ yc resource-manager folder list-access-bindings b1gi63p5vpc29cv73nqa
 +---------+----------------+----------------------+
 | editor  | serviceAccount | aje6etnt6mobh1trcppp |
 +---------+----------------+----------------------+
-
+```
 Полный вывод packer init
 ```
 
 vladimir@vladimir-VirtualBox ~/otus-packer ( (master) ❯ packer init config.pkr.hcl
 Installed plugin github.com/hashicorp/yandex v1.1.3 in "/home/vladimir/.config/packer/plugins/github.com/hashicorp/yandex/packer-plugin-yandex_v1.1.3_x5.0_linux_amd64"
-
+```
 ## 6. Выводы по работе
 
 - **Цель достигнута:** при помощи Packer собран готовый образ ВМ с установленным nginx в Yandex Compute Engine. Образ имеет ID `fd8a7ti0qr81rk992kob` и семейство `nginx-family`.
