@@ -38,23 +38,22 @@ Yandex Cloud API ◄── сервисный аккаунт packer (роль ed
 - **Документирование:** фиксация конфигурации и результата сборки.
 - **Уборка:** удаление созданного образа.
 
-3. Параметры окружения и адресное пространство
-Версии инструментов
-Компонент	Версия / значение
-Packer	v1.11.2
-Плагин hashicorp/yandex	v1.1.3
-Yandex CLI	настроен, профиль активен
-Хост-ОС	Ubuntu (VirtualBox)
-Параметры Yandex Cloud
-Параметр	Значение
-cloud-id	b1guapctjkvac9h6i72h
-folder-id	b1gi63p5vpc29cv73nqa
-subnet-id (зона ru-central1-a)	e9bjskqc8suuhs3v4dr6
-Сервисный аккаунт	packer (aje6etnt6mobh1trcppp)
-Роль на каталог	editor
-Ключ сервисного аккаунта	key.json (RSA_2048, id aje6s1vmhb4hautp1jre)
-Исходный образ	family debian-12 (debian-12-v20261110)
-Итоговый образ	nginx-image-1794821920 (id fd8a7ti0qr81rk992kob), family nginx-family
+## 3. Параметры окружения и адресное пространство
+
+| Параметр | Значение |
+| :--- | :--- |
+| **Версия Packer** | v1.11.2 |
+| **Плагин hashicorp/yandex** | v1.1.3 |
+| **Yandex CLI** | настроен, профиль активен |
+| **Хост-ОС** | Ubuntu (VirtualBox) |
+| **cloud-id** | b1guapctjkvac9h6i72h |
+| **folder-id** | b1gi63p5vpc29cv73nqa |
+| **subnet-id (зона ru-central1-a)** | e9bjskqc8suuhs3v4dr6 |
+| **Сервисный аккаунт** | packer (aje6etnt6mobh1trcppp) |
+| **Роль на каталог** | editor |
+| **Ключ сервисного аккаунта** | key.json (RSA_2048, id aje6s1vmhb4hautp1jre) |
+| **Исходный образ** | family debian-12 (debian-12-v20261110) |
+| **Итоговый образ** | nginx-image-1794821920 (id fd8a7ti0qr81rk992kob), family nginx-family |
 4. Конфигурация (шаблон Packer)
 
 Ниже приведён итоговый json/template.json. В качестве инструмента сборки используется Packer с плагином Yandex.
