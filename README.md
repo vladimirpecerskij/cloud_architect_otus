@@ -29,22 +29,14 @@ Yandex Cloud API ◄── сервисный аккаунт packer (роль ed
 ```
 
 2. План работ
-
-    Установка инструментов: Yandex CLI и Packer.
-
-    Настройка Yandex CLI: yc init, проверка yc config list (cloud-id, folder-id).
-
-    Создание сервисного аккаунта packer, назначение роли editor на каталог, выпуск ключа key.json (пункт со звёздочкой *).
-
-    Подготовка шаблона Packer json/template.json: использование service_account_key_file вместо token, вынос в переменные folder_id, subnet_id, service_account_key_file, image_description, zone.
-
-    Сборка образа: packer init + packer build с передачей переменных.
-
-    Верификация: проверка созданного образа в Yandex Cloud (yc compute image list/get).
-
-    Документирование: фиксация конфигурации и результата сборки.
-
-    Уборка: удаление созданного образа.
+- **Установка инструментов:** Yandex CLI и Packer.
+- **Настройка Yandex CLI:** `yc init`, проверка `yc config list` (cloud-id, folder-id).
+- **Создание сервисного аккаунта** `packer`, назначение роли `editor` на каталог, выпуск ключа `key.json` (пункт со звёздочкой *).
+- **Подготовка шаблона Packer** `json/template.json`: использование `service_account_key_file` вместо `token`, вынос в переменные `folder_id`, `subnet_id`, `service_account_key_file`, `image_description`, `zone`.
+- **Сборка образа:** `packer init` + `packer build` с передачей переменных.
+- **Верификация:** проверка созданного образа в Yandex Cloud (`yc compute image list/get`).
+- **Документирование:** фиксация конфигурации и результата сборки.
+- **Уборка:** удаление созданного образа.
 
 3. Параметры окружения и адресное пространство
 Версии инструментов
