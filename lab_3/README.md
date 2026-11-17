@@ -1,49 +1,87 @@
-Домашнее задание: Тестирование инфраструктурного кода на Terraform
+# Домашнее задание: Тестирование инфраструктурного кода на Terraform
 
-Цель: написать тесты для тестирования кода Terraform из ДЗ1 (развёртывание тестовой среды с frontend, backend и database в Yandex Cloud).
-1. Архитектура тестирования
+**Цель:** написать и выполнить автоматизированные тесты для проверки инфраструктурного кода Terraform из ДЗ №1 (развёртывание тестовой среды с `frontend`, `backend`, `database`, сетью, группой безопасности и сетевым балансировщиком в Yandex Cloud).
 
-Тесты написаны на нативном terraform test (встроен в Terraform 1.6+). Используется command = plan — тесты не создают реальных ресурсов, а проверяют конфигурацию на этапе планирования. Это быстро и не расходует квоты Yandex Cloud.
+---
 
-Схема:
-text
+## Структура проекта
 
-Terraform-код (main.tf)
+```text
+terraform-hw/
+├── main.tf                  # Описание облачной инфраструктуры (VPC, SG, 3 ВМ, NLB)
+├── outputs.tf               # Выходные параметры (IP-адреса инстансов и балансировщика)
+├── README.md                # Отчёт о выполнении и тестировании
+└── tests/
+    └── infra.tftest.hcl     # Нативные модульные и интеграционные тесты Terraform
+```
+
+---
+
+## 1. Архитектура тестирования
+
+Тесты реализованы с помощью нативного фреймворка **`terraform test`** (встроен в Terraform 1.6+). Используется комбинированный подход:
+1. **Модульные тесты (`command = plan`)** — проверяют корректность конфигурации, имена ресурсов, сетевые настройки, правила Security Group и выделяемые квоты (CPU/RAM/диски) без реального создания объектов в облаке.
+2. **Интеграционный тест (`command = apply`)** — разворачивает реальную тестовую среду в Yandex Cloud, проверяет статус запуска ВМ (`running`), фактическую выдачу внутренних и публичных IP-адресов, инициализацию балансировщика NLB, а затем **автоматически удаляет** все созданные ресурсы на этапе `tearing down`.
+
+### Схема тестирования
+
+```text
+Terraform-код (main.tf, outputs.tf)
         │
         ▼
 tests/infra.tftest.hcl
         │
-        ├── run "validate_network"          → проверка сети и подсети
-        ├── run "validate_security_group"   → проверка правил SG (22, 80)
-        ├── run "validate_vms"              → проверка имён ВМ и nat = true
-        └── run "validate_nlb"              → проверка порта 80 у балансировщика
+        ├── [plan]  run "validate_network"              → проверка имени сети и CIDR подсети
+        ├── [plan]  run "validate_security_group"       → проверка правил SG (порты 22 и 80)
+        ├── [plan]  run "validate_vms"                  → проверка имён ВМ и nat = true
+        ├── [plan]  run "validate_nlb"                  → проверка порта 80 у балансировщика
+        ├── [plan]  run "validate_resources_specs"      → проверка vCPU, RAM и размера дисков
+        └── [apply] run "integration_deploy_and_verify" → реальное развёртывание, проверка IP/статусов и автоудаление
+```
 
-2. План работ
+---
 
-    Установка Terraform (уже выполнена в ДЗ1).
+## 2. План работ и порядок запуска
 
-    Настройка зеркала провайдеров в ~/.terraformrc.
+1. Настройка зеркала провайдеров Yandex Cloud в `~/.terraformrc`.
+2. Экспорт переменных аутентификации в окружение (без хранения токенов в коде):
+   * Для **Bash / Zsh**:
+     ```bash
+     export YC_TOKEN=$(yc iam create-token)
+     export YC_CLOUD_ID=$(yc config get cloud-id)
+     export YC_FOLDER_ID=$(yc config get folder-id)
+     ```
+   * Для **Fish shell**:
+     ```fish
+     set -gx YC_TOKEN (yc iam create-token | tail -n 1 | string trim)
+     set -gx YC_CLOUD_ID (yc config get cloud-id | string trim)
+     set -gx YC_FOLDER_ID (yc config get folder-id | string trim)
+     ```
+3. Валидация синтаксиса конфигурации: `terraform validate`.
+4. Написание 6 тестовых сценариев в `tests/infra.tftest.hcl`.
+5. Запуск полного цикла тестирования: `terraform test`.
+6. Контрольная проверка отсутствия оставшихся ресурсов в облаке: `yc compute instance list`.
 
-    Аутентификация через переменные окружения YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID.
+---
 
-    Написание тестов в tests/infra.tftest.hcl (4 блока run с assert).
+## 3. Параметры окружения
 
-    Запуск тестов: terraform test.
+| Параметр | Значение |
+| :--- | :--- |
+| **Версия Terraform** | `v1.14.3` (`linux_amd64`) |
+| **Провайдер** | `yandex-cloud/yandex` (зеркало `terraform-mirror.yandexcloud.net`) |
+| **Хост-ОС и оболочка** | Ubuntu (VirtualBox), Fish shell |
+| **Cloud ID** | `b1guapctjkvac9h6i72h` |
+| **Folder ID** | `b1gi63p5vpc29cv73nqa` |
+| **Зона доступности** | `ru-central1-a` |
 
-    Верификация: все 4 теста проходят (Success! 4 passed, 0 failed).
+---
 
-3. Параметры окружения
-Параметр	Значение
-Версия Terraform	v1.14.3 (linux_amd64)
-Провайдер yandex-cloud/yandex	скачан с terraform-mirror.yandexcloud.net
-Хост-ОС	Ubuntu (VirtualBox)
-cloud-id	b1guapctjkvac9h6i72h
-folder-id	b1gi63p5vpc29cv73nqa
-Зона по умолчанию	ru-central1-a
-4. Конфигурация тестов
-tests/infra.tftest.hcl
-hcl
+## 4. Конфигурация тестов
 
+### Код файла `tests/infra.tftest.hcl`
+
+```hcl
 run "validate_network" {
   command = plan
 
@@ -124,48 +162,109 @@ run "validate_nlb" {
   }
 }
 
-Параметры тестов
-Тест	Что проверяет	Условие
-validate_network	CIDR подсети и имя сети	v4_cidr_blocks[0] == "192.168.10.0/24", name == "hw-network"
-validate_security_group	Наличие правил SSH (22) и HTTP (80) в SG	anytrue([for rule in ... : rule.port == 22/80])
-validate_vms	Имена трёх ВМ и nat = true	name == "*-vm", network_interface[0].nat == true
-validate_nlb	Порт балансировщика	anytrue([for l in listener : l.port == 80])
+run "validate_resources_specs" {
+  command = plan
 
-    Примечание: listener в NLB — это set, поэтому используется for-выражение с anytrue, а не индексация [0].
+  assert {
+    condition     = yandex_compute_instance.frontend.resources[0].cores == 2 && yandex_compute_instance.frontend.resources[0].memory == 2
+    error_message = "Характеристики frontend-vm не соответствуют 2 vCPU / 2 ГБ RAM"
+  }
 
-5. Верификация
-Вывод terraform validate
-text
+  assert {
+    condition     = yandex_compute_instance.backend.resources[0].cores == 2 && yandex_compute_instance.backend.resources[0].memory == 2
+    error_message = "Характеристики backend-vm не соответствуют 2 vCPU / 2 ГБ RAM"
+  }
 
+  assert {
+    condition     = yandex_compute_instance.database.boot_disk[0].initialize_params[0].size == 10
+    error_message = "Размер загрузочного диска database-vm должен быть 10 ГБ"
+  }
+}
+
+run "integration_deploy_and_verify" {
+  command = apply
+
+  assert {
+    condition     = yandex_compute_instance.frontend.status == "running"
+    error_message = "Frontend ВМ не перешла в статус running"
+  }
+
+  assert {
+    condition     = yandex_compute_instance.frontend.network_interface[0].nat_ip_address != ""
+    error_message = "Frontend ВМ не получила внешний IP-адрес"
+  }
+
+  assert {
+    condition     = yandex_compute_instance.backend.network_interface[0].ip_address != ""
+    error_message = "Backend ВМ не получила внутренний IP-адрес"
+  }
+
+  assert {
+    condition     = yandex_compute_instance.database.network_interface[0].ip_address != ""
+    error_message = "Database ВМ не получила внутренний IP-адрес"
+  }
+
+  assert {
+    condition     = length(yandex_lb_network_load_balancer.app-nlb.listener) > 0
+    error_message = "Сетевой балансировщик не создал активный listener"
+  }
+}
+```
+
+### Сводная таблица тестов
+
+| Тест | Режим | Что проверяет | Ключевое условие |
+| :--- | :--- | :--- | :--- |
+| `validate_network` | `plan` | CIDR подсети и имя VPC-сети | `v4_cidr_blocks[0] == "192.168.10.0/24"`, `name == "hw-network"` |
+| `validate_security_group` | `plan` | Наличие правил SSH (22) и HTTP (80) в SG | `anytrue([for rule in ... : rule.port == 22/80])` |
+| `validate_vms` | `plan` | Имена трёх ВМ и включённый NAT | `name == "*-vm"`, `network_interface[0].nat == true` |
+| `validate_nlb` | `plan` | Прослушиваемый порт балансировщика | `anytrue([for l in listener : l.port == 80])` |
+| `validate_resources_specs` | `plan` | Вычислительные ресурсы и размер диска | `cores == 2`, `memory == 2`, `size == 10` |
+| `integration_deploy_and_verify` | `apply` | Реальное создание, статусы ВМ, выдача IP и NLB | `status == "running"`, `nat_ip_address != ""`, `ip_address != ""` |
+
+---
+
+## 5. Верификация и результаты
+
+### Вывод `terraform validate`
+
+```text
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ terraform validate
 Success! The configuration is valid.
+```
 
-Вывод terraform test
-text
+### Вывод `terraform test`
 
+```text
 vladimir@vladimir-VirtualBox ~/terraform-hw ❯ terraform test
 tests/infra.tftest.hcl... in progress
   run "validate_network"... pass
   run "validate_security_group"... pass
   run "validate_vms"... pass
   run "validate_nlb"... pass
+  run "validate_resources_specs"... pass
+  run "integration_deploy_and_verify"... pass
 tests/infra.tftest.hcl... tearing down
 tests/infra.tftest.hcl... pass
 
-Success! 4 passed, 0 failed.
+Success! 6 passed, 0 failed.
+```
 
-Интерпретация: все 4 теста прошли. Конфигурация Terraform из ДЗ1 корректна: сеть, подсеть, Security Group, три ВМ и балансировщик описаны правильно.
-6. Выводы по работе
+### Проверка очистки ресурсов после `tearing down`
 
-    Цель достигнута: написаны и успешно выполнены 4 теста для Terraform-кода из ДЗ1.
+```text
+vladimir@vladimir-VirtualBox ~/terraform-hw ❯ yc compute instance list
++----+------+---------+--------+-------------+-------------+
 
-    Нативный terraform test: используется встроенный механизм Terraform 1.6+ с command = plan — тесты не создают реальных ресурсов и не расходуют квоты.
+| ID | NAME | ZONE ID | STATUS | EXTERNAL IP | INTERNAL IP |
++----+------+---------+--------+-------------+-------------+
+```
 
-    Покрытие: тесты проверяют ключевые параметры инфраструктуры — CIDR подсети, правила Security Group, имена ВМ, nat = true, порт балансировщика.
+**Интерпретация:** все 6 тестов (5 модульных и 1 интеграционный) завершились успешно. Инфраструктура корректно разворачивается в Yandex Cloud, получает сетевые адреса, проходит функциональные проверки и полностью удаляется после завершения тестирования.
 
-    Аутентификация: провайдер подхватывает YC_TOKEN, YC_CLOUD_ID, YC_FOLDER_ID из переменных окружения — чувствительные данные не хранятся в тестах.
+---
 
-    Особенности HCL: listener в NLB — set, поэтому для проверки используется for-выражение с anytrue, а не индексация [0].
+## 6. Выводы по работе
 
-    Воспроизводимость: тесты запускаются одной командой terraform test и завершаются за секунды.
-
+1. **Цель достигнута:** написаны и успешно выполнены 6 тестов (модульные и интеграционный) для проверки Terraform-кода из ДЗ №1.
+2. **Комбинированная стратегия тестирования:** использование `command = plan` позволяет за секунды отловить ошибки в конфигурации без затрат, а финальный блок `command = apply` подтверждает реальную работоспособность кода в API Yandex Cloud с автоматической очисткой (`tearing down`).
