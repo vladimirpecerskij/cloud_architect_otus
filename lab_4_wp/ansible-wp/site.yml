@@ -1,0 +1,7 @@
+---
+- name: Deploy WordPress cluster behind Load Balancer
+  hosts: wp_apps
+  become: true
+  roles:
+    - webserver
+    - wordpress

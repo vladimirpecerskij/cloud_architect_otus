@@ -1,0 +1,41 @@
+---
+- name: Update apt cache and install Nginx and PHP packages
+  apt:
+    name:
+      - nginx
+      - php-fpm
+      - php-mysql
+      - php-curl
+      - php-gd
+      - php-mbstring
+      - php-xml
+      - php-zip
+    state: present
+    update_cache: true
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload Nginx
+
+- name: Configure Nginx virtual host for WordPress
+  template:
+    src: nginx-wp.conf.j2
+    dest: /etc/nginx/sites-available/wordpress
+  notify: Reload Nginx
+
+- name: Enable WordPress site in Nginx
+  file:
+    src: /etc/nginx/sites-available/wordpress
+    dest: /etc/nginx/sites-enabled/wordpress
+    state: link
+  notify: Reload Nginx
+
+- name: Ensure Nginx and PHP-FPM are restarted
+  service:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - php8.1-fpm
+    - nginx
