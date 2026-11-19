@@ -7,5 +7,5 @@ output "mysql_host_fqdn" {
 }
 
 output "load_balancer_ip" {
-  value = [for l in yandex_lb_network_load_balancer.wp-nlb.listener : l.external_address_spec[0].address][0]
+  value = one([for l in yandex_lb_network_load_balancer.wp-nlb.listener : one(l.external_address_spec).address])
 }
