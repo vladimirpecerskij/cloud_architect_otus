@@ -39,16 +39,10 @@ jobs:
       - name: Setup SSH keys & Yandex Cloud credentials
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          cat << 'PUB' > ~/.ssh/yc.pub
-          ${{ secrets.SSH_PUBLIC_KEY }}
-          PUB
-          cat << 'PRIV' > ~/.ssh/yc
-          ${{ secrets.SSH_PRIVATE_KEY }}
-          PRIV
+          printf '%s\n' "${{ secrets.SSH_PUBLIC_KEY }}" > ~/.ssh/yc.pub
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/yc
           chmod 600 ~/.ssh/yc
-          cat << 'YCKEY' > /tmp/yc-key.json
-          ${{ secrets.YC_SERVICE_ACCOUNT_KEY }}
-          YCKEY
+          printf '%s\n' '${{ secrets.YC_SERVICE_ACCOUNT_KEY }}' > /tmp/yc-key.json
           echo "YC_SERVICE_ACCOUNT_KEY_FILE=/tmp/yc-key.json" >> $GITHUB_ENV
 
       - name: Setup Terraform
