@@ -1,0 +1,22 @@
+---
+- name: Download and extract latest WordPress
+  unarchive:
+    src: "{{ wp_download_url }}"
+    dest: /var/www/
+    remote_src: true
+    creates: "{{ wp_install_dir }}/index.php"
+
+- name: Set ownership for WordPress directory
+  file:
+    path: "{{ wp_install_dir }}"
+    owner: www-data
+    group: www-data
+    recurse: true
+
+- name: Deploy wp-config.php from template
+  template:
+    src: wp-config.php.j2
+    dest: "{{ wp_install_dir }}/wp-config.php"
+    owner: www-data
+    group: www-data
+    mode: "0640"

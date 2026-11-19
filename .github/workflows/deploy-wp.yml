@@ -1,0 +1,90 @@
+name: Infrastructure & WordPress Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'lab_6_gha/**'
+      - '.github/workflows/deploy-wp.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Действие с инфраструктурой'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
+  YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+  TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+jobs:
+  terraform-and-ansible:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lab_6_gha/terraform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH keys & Yandex Cloud credentials
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "${{ secrets.SSH_PUBLIC_KEY }}" > ~/.ssh/yc.pub
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/yc
+          chmod 600 ~/.ssh/yc
+          echo '${{ secrets.YC_SERVICE_ACCOUNT_KEY }}' > /tmp/yc-key.json
+          echo "YC_SERVICE_ACCOUNT_KEY_FILE=/tmp/yc-key.json" >> $GITHUB_ENV
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.0
+
+      - name: Terraform Init & Validate
+        run: |
+          terraform init
+          terraform fmt -check || true
+          terraform validate
+
+      - name: Terraform Plan
+        if: github.event_name == 'push' || github.event.inputs.action == 'plan'
+        run: terraform plan
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
+        run: |
+          terraform apply -auto-approve
+          terraform output -json > ../tf_outputs.json
+
+      - name: Deploy WordPress with Ansible
+        if: github.event.inputs.action == 'apply'
+        working-directory: lab_6_gha/ansible
+        run: |
+          pip install ansible
+          python3 -c '
+          import json, os
+          data = json.load(open("../tf_outputs.json"))
+          ips = data["wp_app_external_ips"]["value"]
+          db = data["mysql_host_fqdn"]["value"]
+          db_pass = os.environ["TF_VAR_db_password"]
+          with open("inventory.ini", "w") as f:
+              f.write(f"[wp_apps]\nwp-app-1 ansible_host={ips[0]}\nwp-app-2 ansible_host={ips[1]}\n")
+          with open("roles/wordpress/vars/main.yml", "w") as f:
+              f.write(f"---\nwp_db_name: \"wordpress_db\"\nwp_db_user: \"wp_user\"\nwp_db_password: \"{db_pass}\"\nwp_db_host: \"{db}\"\n")
+          '
+          sed -i 's|private_key_file = .*|private_key_file = ~/.ssh/yc|' ansible.cfg
+          ansible-playbook site.yml
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform destroy -auto-approve
